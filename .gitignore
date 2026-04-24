@@ -1,8 +1,26 @@
+# Python
 __pycache__/
 *.pyc
-.DS_Store
-.ipynb_checkpoints/
+*.pyo
+*.pyd
+.Python
+
+# Environments
 venv/
 env/
 .env
 music_genre/
+
+# OS
+.DS_Store
+.ipynb_checkpoints/
+
+# Large model binaries (too big for GitHub free tier)
+models/best_model.joblib
+models/shap_values.joblib
+
+# CatBoost training logs
+catboost_info/
+
+# Jupyter
+*.ipynb_checkpoints

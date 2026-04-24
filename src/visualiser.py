@@ -1,6 +1,6 @@
 """
 All static visualisations: EDA, confusion matrix, feature importance,
-ROC curves.  Figures are saved to reports/figures/.
+ROC curves, model comparison.  Figures are saved to reports/figures/.
 """
 import os
 import logging
@@ -12,7 +12,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
 import seaborn as sns
 from sklearn.metrics import roc_curve, auc
 from sklearn.preprocessing import label_binarize
@@ -21,28 +21,36 @@ from src.config import FIGURES_DIR, GENRE_COLORS
 
 logger = logging.getLogger(__name__)
 
-# ── Style ─────────────────────────────────────────────────────────────────────
-DARK_BG   = "#0f0f1a"
-CARD_BG   = "#1a1a2e"
-ACCENT    = "#00D4FF"
-TEXT      = "#e0e0f0"
-GRID      = "#2a2a4a"
+# ── Theme constants ───────────────────────────────────────────────────────────
+DARK_BG = "#0f0f1a"
+CARD_BG = "#1a1a2e"
+ACCENT  = "#00D4FF"
+TEXT    = "#e0e0f0"
+GRID    = "#2a2a4a"
+
 
 def _apply_dark_style(fig, ax_list=None):
     fig.patch.set_facecolor(DARK_BG)
-    axes = ax_list or fig.get_axes()
-    for ax in axes:
+    for ax in (ax_list or fig.get_axes()):
         ax.set_facecolor(CARD_BG)
         ax.tick_params(colors=TEXT, labelsize=9)
-        ax.xaxis.label.set_color(TEXT)
-        ax.yaxis.label.set_color(TEXT)
-        ax.title.set_color(TEXT)
+        for item in [ax.xaxis.label, ax.yaxis.label, ax.title]:
+            item.set_color(TEXT)
         for spine in ax.spines.values():
             spine.set_edgecolor(GRID)
 
 
+def _savefig(fig, name: str, dpi: int = 150) -> str:
+    path = os.path.join(FIGURES_DIR, name)
+    plt.tight_layout()
+    fig.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
+    logger.info(f"Saved: {path}")
+    return path
+
+
 # ── EDA ───────────────────────────────────────────────────────────────────────
-def plot_genre_distribution(df: pd.DataFrame):
+def plot_genre_distribution(df: pd.DataFrame) -> str:
     counts = df["playlist_genre"].value_counts()
     colors = [GENRE_COLORS.get(g, ACCENT) for g in counts.index]
 
@@ -56,15 +64,10 @@ def plot_genre_distribution(df: pd.DataFrame):
         ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 40,
                 f"{val:,}", ha="center", va="bottom", color=TEXT, fontsize=9)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "genre_distribution.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "genre_distribution.png")
 
 
-def plot_feature_distributions(df: pd.DataFrame, features: list):
+def plot_feature_distributions(df: pd.DataFrame, features: list) -> str:
     n = len(features)
     cols = 3
     rows = (n + cols - 1) // cols
@@ -87,15 +90,10 @@ def plot_feature_distributions(df: pd.DataFrame, features: list):
     fig.suptitle("Audio Feature Distributions by Genre",
                  fontsize=14, fontweight="bold", color=TEXT, y=1.01)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "feature_distributions.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "feature_distributions.png")
 
 
-def plot_correlation_heatmap(df: pd.DataFrame, features: list):
+def plot_correlation_heatmap(df: pd.DataFrame, features: list) -> str:
     corr = df[features].corr()
     fig, ax = plt.subplots(figsize=(12, 10))
     mask = np.triu(np.ones_like(corr, dtype=bool))
@@ -107,23 +105,16 @@ def plot_correlation_heatmap(df: pd.DataFrame, features: list):
     ax.set_title("Feature Correlation Matrix", fontsize=14,
                   fontweight="bold", pad=12)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "correlation_heatmap.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "correlation_heatmap.png")
 
 
-def plot_boxplots(df: pd.DataFrame, features: list):
+def plot_boxplots(df: pd.DataFrame, features: list) -> str:
     top_features = ["danceability", "energy", "valence",
                     "tempo", "acousticness", "speechiness"]
     top_features = [f for f in top_features if f in features]
-    n = len(top_features)
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
     axes_flat = axes.flatten()
-    palette = {g: GENRE_COLORS.get(g, ACCENT)
-               for g in df["playlist_genre"].unique()}
+    palette = {g: GENRE_COLORS.get(g, ACCENT) for g in df["playlist_genre"].unique()}
 
     for i, feat in enumerate(top_features):
         ax = axes_flat[i]
@@ -138,16 +129,11 @@ def plot_boxplots(df: pd.DataFrame, features: list):
     fig.suptitle("Feature Boxplots by Genre",
                  fontsize=14, fontweight="bold", color=TEXT)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "boxplots.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "boxplots.png")
 
 
 # ── Model evaluation ─────────────────────────────────────────────────────────
-def plot_confusion_matrix(y_true, y_pred, class_names: list):
+def plot_confusion_matrix(y_true, y_pred, class_names: list) -> str:
     from sklearn.metrics import confusion_matrix as cm
     matrix = cm(y_true, y_pred)
     matrix_norm = matrix.astype(float) / matrix.sum(axis=1, keepdims=True)
@@ -168,15 +154,10 @@ def plot_confusion_matrix(y_true, y_pred, class_names: list):
         ax.set_ylabel("Actual", fontsize=10)
 
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "confusion_matrix.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "confusion_matrix.png")
 
 
-def plot_feature_importance(model, feature_names: list, top_n: int = 20):
+def plot_feature_importance(model, feature_names: list, top_n: int = 20) -> str | None:
     if not hasattr(model, "feature_importances_"):
         logger.warning("Model has no feature_importances_; skipping plot.")
         return None
@@ -186,23 +167,18 @@ def plot_feature_importance(model, feature_names: list, top_n: int = 20):
     colors = [ACCENT if i < 5 else "#6060aa" for i in range(len(importances))]
 
     fig, ax = plt.subplots(figsize=(10, 7))
-    bars = ax.barh(importances.index[::-1], importances.values[::-1],
-                   color=colors[::-1], edgecolor="#ffffff22")
+    ax.barh(importances.index[::-1], importances.values[::-1],
+            color=colors[::-1], edgecolor="#ffffff22")
     ax.set_title(f"Top {top_n} Feature Importances",
                  fontsize=14, fontweight="bold", pad=12)
     ax.set_xlabel("Importance Score", fontsize=11)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "feature_importance.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "feature_importance.png")
 
 
-def plot_roc_curves(model, X_test, y_test, class_names: list):
+def plot_roc_curves(model, X_test, y_test, class_names: list) -> str:
     n_classes = len(class_names)
-    y_bin = label_binarize(y_test, classes=list(range(n_classes)))
+    y_bin   = label_binarize(y_test, classes=list(range(n_classes)))
     y_score = model.predict_proba(X_test)
 
     fig, ax = plt.subplots(figsize=(9, 7))
@@ -221,15 +197,10 @@ def plot_roc_curves(model, X_test, y_test, class_names: list):
                  fontweight="bold", pad=12)
     ax.legend(fontsize=9, loc="lower right")
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "roc_curves.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "roc_curves.png")
 
 
-def plot_model_comparison(results: dict):
+def plot_model_comparison(results: dict) -> str:
     names = list(results.keys())
     accs  = [results[n]["accuracy"]    for n in names]
     f1s   = [results[n]["f1_weighted"] for n in names]
@@ -237,21 +208,16 @@ def plot_model_comparison(results: dict):
 
     x = np.arange(len(names))
     w = 0.25
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(max(12, len(names) * 2), 6))
     ax.bar(x - w, accs, w, label="Accuracy",    color="#00D4FF", alpha=0.85)
     ax.bar(x,     f1s,  w, label="F1-Weighted", color="#FF6B9D", alpha=0.85)
     ax.bar(x + w, cvs,  w, label="CV F1",       color="#FFD700", alpha=0.85)
 
     ax.set_xticks(x)
-    ax.set_xticklabels(names, rotation=15, ha="right")
-    ax.set_ylim(0.5, 1.01)
-    ax.set_title("Model Benchmark Comparison",
-                 fontsize=14, fontweight="bold", pad=12)
+    ax.set_xticklabels(names, rotation=20, ha="right")
+    ax.set_ylim(0.45, 1.01)
+    ax.set_title("Model Benchmark Comparison", fontsize=14,
+                 fontweight="bold", pad=12)
     ax.legend(fontsize=10)
     _apply_dark_style(fig)
-    path = os.path.join(FIGURES_DIR, "model_comparison.png")
-    plt.tight_layout()
-    fig.savefig(path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    logger.info(f"Saved: {path}")
-    return path
+    return _savefig(fig, "model_comparison.png")

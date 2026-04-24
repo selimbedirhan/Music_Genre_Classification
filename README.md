@@ -1,98 +1,70 @@
 # 🎵 Music Genre Classification — Professional ML Pipeline
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python"/>
-  <img src="https://img.shields.io/badge/XGBoost-Latest-orange?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/LightGBM-Latest-green?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/SHAP-Explainability-purple?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Streamlit-Dashboard-red?style=for-the-badge&logo=streamlit"/>
-</p>
+## Overview
 
-> End-to-end production-grade music genre classification system trained on **32,000+ Spotify tracks** with multi-model benchmarking, Optuna hyperparameter tuning, SHAP explainability, and an interactive Streamlit dashboard.
+End-to-end music genre classifier using **32,000+ Spotify tracks**.  
+Classifies songs into 6 genres: **EDM · Pop · Rap · R&B · Latin · Rock**.
 
----
-
-## 🚀 Features
-
-| Category | Details |
-|---|---|
-| **Dataset** | 32,833 Spotify tracks · 6 genres · 13 audio features |
-| **Models** | Random Forest · XGBoost · LightGBM · Logistic Regression |
-| **Optimisation** | Optuna TPE · 30 trials per model |
-| **Balancing** | SMOTE oversampling |
-| **Explainability** | SHAP TreeExplainer · Global + instance-level |
-| **Dashboard** | Streamlit · Plotly · Real-time prediction |
-| **EDA** | Distributions · Correlations · Radar charts · Boxplots |
-
----
-
-## 📁 Project Structure
+## Architecture
 
 ```
-Music_Genre_Classification/
-├── src/
-│   ├── config.py          # Paths, features, constants
-│   ├── data_pipeline.py   # Load → clean → engineer → SMOTE
-│   ├── trainer.py         # Multi-model benchmark + Optuna tuning
-│   ├── visualiser.py      # All static figures (EDA, metrics)
-│   └── explainer.py       # SHAP explainability
-├── archive/
-│   └── spotify_songs.csv  # Raw dataset
-├── models/                # Saved model artifacts (auto-generated)
-├── reports/figures/       # All generated plots (auto-generated)
-├── train.py               # 🏋️ Full training pipeline entry-point
-├── dashboard.py           # 🎛 Streamlit dashboard
-└── requirements.txt
+archive/spotify_songs.csv
+       │
+       ▼
+src/data_pipeline.py   ← Load → Clean → Feature Engineering (31 features)
+       │
+       ▼
+src/trainer.py         ← XGBoost · LightGBM · CatBoost · RandomForest
+                          + Stacking Ensemble · Optuna HPO
+       │
+       ▼
+models/                ← best_model.joblib · scaler · encoder · SHAP cache
+       │
+       ▼
+dashboard.py           ← Streamlit interactive dashboard
 ```
 
----
+## Accuracy-boosting Techniques
 
-## ⚙️ Quick Start
+| Technique | Description |
+|-----------|-------------|
+| Rich feature engineering | 18 derived features (cyclical key, log-transforms, interaction products) |
+| SMOTE (per-fold) | Class balancing — applied only on train fold to prevent leakage |
+| Stacking Ensemble | Top-3 base models → LightGBM meta-learner |
+| Optuna HPO | 50-trial TPE search with median pruner |
+| CatBoost | Gradient boosting with built-in categorical handling |
+
+## Quick Start
 
 ```bash
-# 1 – Install dependencies
 pip install -r requirements.txt
 
-# 2 – Train (fast, no tuning)
+# Fast run (no Optuna, with stacking)
 python train.py
 
-# 3 – Train with Optuna hyperparameter tuning
-python train.py --tune
+# Full professional run (Optuna + stacking)
+python train.py --tune --trials=50
 
-# 4 – Launch dashboard
+# Launch dashboard
 streamlit run dashboard.py
 ```
 
----
+## Dashboard Pages
 
-## 📊 Results (baseline)
+| Page | Content |
+|------|---------|
+| 🏠 Overview | KPIs, genre distribution, radar chart |
+| 📊 EDA | Distributions, correlations, boxplots, violins |
+| 🤖 Benchmark | Model comparison, confusion matrix, per-class metrics |
+| 🎧 Predict | Real-time slider-based prediction with confidence bars |
+| 💡 Explainability | Global SHAP, per-class beeswarm, feature importance |
 
-| Model | Accuracy | F1-Weighted | CV F1 |
-|---|---|---|---|
-| LightGBM | ~0.87 | ~0.87 | ~0.86 |
-| XGBoost | ~0.86 | ~0.86 | ~0.85 |
-| Random Forest | ~0.85 | ~0.85 | ~0.84 |
-| Logistic Regression | ~0.62 | ~0.62 | ~0.61 |
+## Feature Set (31 total)
 
-> Exact numbers depend on SMOTE randomness; run `train.py` to get your results.
+**Base (13):** danceability, energy, loudness, speechiness, acousticness,
+instrumentalness, liveness, valence, tempo, duration_ms, key, mode, track_popularity
 
----
-
-## 🧠 Genres Classified
-
-| Genre | Tracks | Emoji |
-|---|---|---|
-| EDM | 6,043 | ⚡ |
-| Rap | 5,746 | 🎤 |
-| Pop | 5,507 | 🌟 |
-| R&B | 5,431 | 🎵 |
-| Latin | 5,155 | 💃 |
-| Rock | 4,951 | 🎸 |
-
----
-
-## 👨‍💻 Author
-
-**Selim Bedirhan Öztürk**  
-Computer Engineering · Ankara University  
-📬 selimbedirhan42@gmail.com
+**Engineered (18):** energy_dance_ratio, acoustic_energy_diff, valence_energy,
+valence_dance, energy_loudness, acoustic_instrument, energy_valence_sum,
+log_instrumentalness, log_speechiness, log_liveness, duration_min, log_duration_ms,
+key_sin, key_cos, popularity_bin, tempo_energy, tempo_dance, speech_instrument_ratio
